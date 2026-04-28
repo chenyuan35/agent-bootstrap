@@ -24,4 +24,4 @@ Repository = "https://github.com/chenyuan35/agent-bootstrap.git"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agent_bootstrap*"]
+include = ["agent_bootstrap*", "agent_bootstrap.*"]
