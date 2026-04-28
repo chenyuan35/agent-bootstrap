@@ -87,6 +87,12 @@ _KEY_FORMAT_DB = {
         "description": "Alibaba Tongyi Qianwen API key",
         "families": ["alibaba", "qwen"],
     },
+    "dashscope": {
+        "patterns": [r"^sk-[a-f0-9]{32}$"],
+        "provider": "dashscope",
+        "description": "Alibaba DashScope (Bailian) API key",
+        "families": ["alibaba", "dashscope", "bailian"],
+    },
     # ---- Global Cloud Vendors (8) ----
     "aws": {
         "patterns": [r"^AKIA[A-Z0-9]{16}$", r"^ASIA[A-Z0-9]{16}$"],
@@ -265,6 +271,7 @@ _PROVIDER_PREFIXES = {
     "baichuan": ["baichuan-", "bc-"],
     "deepseek": ["sk-"],  # note: overlaps with openai
     "qwen": ["qwen-"],
+    "dashscope": ["sk-"],
     "aws": ["AKIA", "ASIA"],
     "aliyun": ["LTAI"],
     "tencent": ["AKID"],
@@ -306,7 +313,15 @@ def identify_by_prefix(api_key: str) -> Optional[str]:
     if not api_key or not isinstance(api_key, str):
         return None
 
-    # Step 1: longest-prefix-first matching (specific before general)
+    # Build provider -> patterns mapping
+    provider_patterns = {}
+    for name, entry in _KEY_FORMAT_DB.items():
+        p = entry["provider"]
+        if p not in provider_patterns:
+            provider_patterns[p] = []
+        provider_patterns[p].extend(entry.get("patterns", []))
+
+    # Step 1: longest-prefix-first matching + regex verification
     all_prefixes = []
     for provider, prefixes in _PROVIDER_PREFIXES.items():
         for p in prefixes:
@@ -316,7 +331,14 @@ def identify_by_prefix(api_key: str) -> Optional[str]:
 
     for _, prefix, provider in all_prefixes:
         if api_key.startswith(prefix):
-            return provider
+            # Verify with regex pattern
+            patterns = provider_patterns.get(provider, [])
+            for pattern in patterns:
+                try:
+                    if re.match(pattern, api_key):
+                        return provider
+                except re.error:
+                    continue
 
     # Step 2: fallback to regex patterns in _KEY_FORMAT_DB
     for entry in _KEY_FORMAT_DB.values():
